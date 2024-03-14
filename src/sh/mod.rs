@@ -1,7 +1,9 @@
 use colored::Colorize;
 use rustyline::error::ReadlineError;
+use std::collections::HashMap;
 
 pub mod cmd;
+pub mod flag;
 pub mod mode;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -13,9 +15,10 @@ pub enum State {
 #[derive(Debug, Clone)]
 pub struct Shell {
     pub state: State,
-    pub mode: usize,
+    pub flags: HashMap<String, flag::Flag>,
+    current_mode: Option<usize>,
     pub modes: Vec<mode::Mode>,
-    pub prompt: fn(&Shell) -> String,
+    pub prompt: PromptGen,
     pub builtin: Vec<cmd::Command>,
 }
 
@@ -23,27 +26,33 @@ pub enum ShellError {
     CommandError,
 }
 
+pub type PromptGen = fn(&Shell) -> String;
+
 impl Shell {
     /// Create a new shell
     pub fn new() -> Shell {
         Shell {
             state: State::Ok,
-            mode: 0,
+            current_mode: None,
             modes: Vec::new(),
-            prompt: |s| match s.state {
-                State::Error(_) => "! ".red().to_string(),
-                _ => "> ".to_string(),
+            flags: HashMap::new(),
+            prompt: |s| {
+                match s.state {
+                    State::Error(_) => "! ".red(),
+                    _ => "> ".green(),
+                }
+                .to_string()
             },
             builtin: Vec::new(),
         }
     }
 
     /// Set the shell state to an error
-    /// 
+    ///
     /// # Example
     /// ```
     /// use citrs::sh::{Shell, State};
-    /// 
+    ///
     /// let mut shell = Shell::new();
     /// shell.err("error message".to_string());
     /// assert_eq!(shell.state, State::Error("error message".to_string()));
@@ -53,11 +62,11 @@ impl Shell {
     }
 
     /// Reset the shell state
-    /// 
+    ///
     /// # Example
     /// ```
     /// use citrs::sh::{Shell, State};
-    /// 
+    ///
     /// let mut shell = Shell::new();
     /// shell.err("error message".to_string());
     /// shell.ok();
@@ -68,21 +77,16 @@ impl Shell {
     }
 
     /// Get the current mode
-    pub fn get_mode(&self) -> Option<&mode::Mode> {
-        self.modes.get(self.mode)
-    }
-
-    // Find the index of a mode by name
-    pub fn find_mode_index(&self, name: &str) -> Option<usize> {
-        self.modes.iter().position(|m| m.name == name)
+    pub fn mode(&self) -> Option<&mode::Mode> {
+        self.modes.get(self.current_mode?)
     }
 
     /// Find a command by name
-    /// 
+    ///
     /// # Example
     /// ```
     /// use citrs::sh::{Shell, cmd};
-    /// 
+    ///
     /// let mut shell = Shell::new();
     /// let command = cmd::Command {
     ///    name: "test",
@@ -90,7 +94,7 @@ impl Shell {
     ///    usage: "test <arg>",
     ///    action: |_, _| Ok(())
     /// };
-    /// 
+    ///
     /// shell.builtin.push(command.clone());
     /// let result = shell.find_command("test").unwrap();
     /// assert_eq!(result, &command);
@@ -99,13 +103,13 @@ impl Shell {
         self.commands()
             .iter()
             .find(|c| c.name == name)
-            .map(|c| c.clone())
+            .cloned()
             .ok_or(format!("command not found: {}", name))
     }
 
     pub fn commands(&self) -> Vec<cmd::Command> {
         let mut commands = self.builtin.clone();
-        if let Some(mode) = self.get_mode() {
+        if let Some(mode) = self.mode() {
             commands.extend(mode.commands.clone());
         }
         commands
@@ -132,7 +136,7 @@ impl Shell {
         Ok(line)
     }
 
-    /// Handle a line of input
+    /// Handle a line of input, running it if it resolves to a functioning command
     pub fn handle_line(&mut self, line: String) -> Result<(), String> {
         let (command_name, args) = parse_line(line)?;
         let command = self.find_command(&command_name)?;
@@ -159,14 +163,36 @@ impl Shell {
             self.ok()
         }
     }
+
+    pub fn populated() -> Self {
+        let mut shell = Shell::new();
+        shell.builtin = cmd::builtin::default();
+        shell.modes = mode::default();
+        shell.current_mode = Some(0);
+        shell
+    }
+
+    fn set_flag(&mut self, name: &str, value: flag::Flag) {
+        self.flags.insert(name.to_string(), value);
+    }
+
+    fn get_flag(&self, name: &str) -> Option<&flag::Flag> {
+        self.flags.get(name)
+    }
+}
+
+impl Default for Shell {
+    fn default() -> Self {
+        Shell::new()
+    }
 }
 
 /// Parse a line of input into a command name and arguments
-/// 
+///
 /// # Example
 /// ```
 /// use citrs::sh::parse_line;
-/// 
+///
 /// let result = parse_line("command arg1 arg2".to_string());
 /// assert!(result.is_ok());
 /// let (command_name, args) = result.unwrap();
@@ -175,18 +201,14 @@ impl Shell {
 /// ```
 pub fn parse_line(line: String) -> Result<(String, Vec<String>), String> {
     let mut cmd_args = line.splitn(2, ' ');
-    let name = cmd_args
-        .next()
-        .ok_or("no command provided")?
-        .to_string();
+    let name = cmd_args.next().ok_or("no command provided")?.to_string();
     if name.is_empty() {
         return Err("no command provided".to_string());
     }
-    let args: Vec<String> = cmd_args.next().map_or(Vec::new(), |s| s.split(" ").map(|s| s.to_string()).collect());
-    Ok((
-        name,
-        args
-    ))
+    let args: Vec<String> = cmd_args.next().map_or(Vec::new(), |s| {
+        s.split(' ').map(|s| s.to_string()).collect()
+    });
+    Ok((name, args))
 }
 
 #[cfg(test)]

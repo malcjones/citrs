@@ -12,14 +12,14 @@ pub enum State {
     Error(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Shell {
     pub state: State,
-    pub flags: HashMap<String, flag::Flag>,
+    flags: HashMap<String, flag::Flag>,
     current_mode: Option<usize>,
     pub modes: Vec<mode::Mode>,
-    pub prompt: PromptGen,
-    pub builtin: Vec<cmd::Command>,
+    prompt: PromptGen,
+    builtin: Vec<cmd::Command>,
 }
 
 pub enum ShellError {

@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 colored = "2.1.0"
 rustyline = "14.0.0"
+
+[profile.release]
+debug = true

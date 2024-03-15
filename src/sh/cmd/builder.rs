@@ -23,7 +23,10 @@ impl CommandBuilder {
         }
     }
 
-    pub fn action(mut self, action: fn(&mut Shell, Vec<String>) -> Result<(), String>) -> CommandBuilder {
+    pub fn action(
+        mut self,
+        action: fn(&mut Shell, Vec<String>) -> Result<(), String>,
+    ) -> CommandBuilder {
         self.command.action = action;
         self
     }
@@ -39,6 +42,9 @@ impl CommandBuilder {
         }
         self
     }
-    
-}
 
+    pub fn not_implemented(name: &str) -> CommandBuilder {
+        CommandBuilder::new(name, "not implemented")
+            .action(|_, _| Err("not implemented".to_string()))
+    }
+}

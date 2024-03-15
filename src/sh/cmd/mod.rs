@@ -1,7 +1,7 @@
 use super::Shell;
 
-pub mod builtin;
 pub mod builder;
+pub mod builtin;
 
 #[derive(Clone, Debug)]
 pub struct Command {
@@ -10,6 +10,7 @@ pub struct Command {
     pub usage: String,
     pub action: fn(&mut Shell, Vec<String>) -> Result<(), String>,
 }
+
 
 impl Command {
     /// Run a command given a shell

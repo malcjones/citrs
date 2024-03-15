@@ -1,10 +1,10 @@
 use super::cmd;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Mode {
     pub name: String,
     pub description: String,
-    pub commands: Vec<cmd::Command>,
+    pub commands: Vec<cmd::Command>
 }
 
 pub fn default() -> Vec<Mode> {
@@ -12,6 +12,8 @@ pub fn default() -> Vec<Mode> {
 }
 
 pub mod bookmark {
+    use crate::sh::cmd::builder::CommandBuilder;
+
     use super::{cmd, Mode};
 
     pub fn mode() -> Mode {
@@ -23,31 +25,10 @@ pub mod bookmark {
     }
 
     fn add() -> cmd::Command {
-        cmd::Command {
-            name: "add".to_string(),
-            description: "Add a bookmark".to_string(),
-            usage: "add <url>".to_string(),
-            action: |_, args| {
-                if args.is_empty() {
-                    return Err("No URL provided".to_string());
-                };
-
-                let url = &args[0];
-                println!("Bookmarking {}", url);
-                Ok(())
-            },
-        }
+        CommandBuilder::not_implemented("add").command
     }
 
     fn list() -> cmd::Command {
-        cmd::Command {
-            name: "list".to_string(),
-            description: "List bookmarks".to_string(),
-            usage: "list".to_string(),
-            action: |_, _| {
-                println!("Listing bookmarks");
-                Ok(())
-            },
-        }
+        CommandBuilder::not_implemented("list").command
     }
 }

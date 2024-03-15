@@ -1,16 +1,15 @@
 use super::Shell;
 
 pub mod builder;
-pub mod builtin;
 
 #[derive(Clone, Debug)]
 pub struct Command {
     pub name: String,
+    pub aliases: Vec<String>,
     pub description: String,
     pub usage: String,
     pub action: fn(&mut Shell, Vec<String>) -> Result<(), String>,
 }
-
 
 impl Command {
     /// Run a command given a shell
@@ -39,6 +38,7 @@ mod tests {
         // Create a test command
         let command = Command {
             name: "test".to_string(),
+            aliases: vec![],
             description: "test command".to_string(),
             usage: "test <arg1> <arg2>".to_string(),
             action: test_action,

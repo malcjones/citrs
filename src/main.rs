@@ -1,5 +1,8 @@
 use citrs::sh::Shell;
+mod defaults;
 
 fn main() {
-    Shell::populated().run();
+    let mut shell = Shell::new();
+    defaults::populate(&mut shell);
+    shell.run();
 }

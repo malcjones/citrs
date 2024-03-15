@@ -19,7 +19,7 @@ pub struct Shell {
     current_mode: Option<usize>,
     pub modes: Vec<mode::Mode>,
     prompt: PromptGen,
-    builtin: Vec<cmd::Command>,
+    pub builtin: Vec<cmd::Command>,
 }
 
 pub enum ShellError {
@@ -102,7 +102,7 @@ impl Shell {
     pub fn find_command(&self, name: &str) -> Result<cmd::Command, String> {
         self.commands()
             .iter()
-            .find(|c| c.name == name)
+            .find(|c| c.aliases.contains(&name.to_string()))
             .cloned()
             .ok_or(format!("command not found: {}", name))
     }
@@ -164,19 +164,22 @@ impl Shell {
         }
     }
 
-    pub fn populated() -> Self {
-        let mut shell = Shell::new();
-        shell.builtin = cmd::builtin::default();
-        shell.modes = mode::default();
-        shell.current_mode = Some(0);
-        shell
+    pub fn set_mode(&mut self, idx: Option<usize>) {
+        match idx {
+            Some(idx) => {
+                if idx < self.modes.len() {
+                    self.current_mode = Some(idx)
+                }
+            }
+            None => self.current_mode = None,
+        }
     }
 
-    fn set_flag(&mut self, name: &str, value: flag::Flag) {
+    pub fn set_flag(&mut self, name: &str, value: flag::Flag) {
         self.flags.insert(name.to_string(), value);
     }
 
-    fn get_flag(&self, name: &str) -> Option<&flag::Flag> {
+    pub fn get_flag(&self, name: &str) -> Option<&flag::Flag> {
         self.flags.get(name)
     }
 }
@@ -188,7 +191,7 @@ impl Default for Shell {
 }
 
 /// Parse a line of input into a command name and arguments
-///
+/// TODO: Quotes
 /// # Example
 /// ```
 /// use citrs::sh::parse_line;
@@ -206,7 +209,40 @@ pub fn parse_line(line: String) -> Result<(String, Vec<String>), String> {
         return Err("no command provided".to_string());
     }
     let args: Vec<String> = cmd_args.next().map_or(Vec::new(), |s| {
-        s.split(' ').map(|s| s.to_string()).collect()
+        let mut in_quotes = false;
+        let mut in_arg = false;
+        let mut arg = String::new();
+        let mut args = Vec::new();
+
+        for c in s.chars() {
+            match c {
+                ' ' if !in_quotes => {
+                    if in_arg {
+                        args.push(arg.clone());
+                        arg.clear();
+                        in_arg = false;
+                    }
+                }
+                '"' => {
+                    in_quotes = !in_quotes;
+                    if in_arg {
+                        args.push(arg.clone());
+                        arg.clear();
+                        in_arg = false;
+                    }
+                }
+                _ => {
+                    in_arg = true;
+                    arg.push(c);
+                }
+            }
+        }
+
+        if in_arg {
+            args.push(arg);
+        }
+
+        args
     });
     Ok((name, args))
 }
